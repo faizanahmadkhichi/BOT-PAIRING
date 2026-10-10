@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAK BOT — Pair WhatsApp</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #fff; color: #111;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 48px 20px;
+  }
+  .kicker {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: #6d28d9; margin-bottom: 12px; font-weight: 700;
+  }
+  h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .sub { color: #666; font-size: 15px; margin-bottom: 40px; text-align: center; max-width: 420px; }
+  .card {
+    width: 100%; max-width: 420px;
+    border: 1px solid #e5e5e5; padding: 32px;
+  }
+  .step { display: none; }
+  .step.active { display: block; }
+  label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 8px; font-weight: 600; }
+  input {
+    width: 100%; padding: 14px; font-size: 18px;
+    border: 1px solid #111; border-radius: 0; outline: none;
+    font-family: inherit;
+  }
+  input:focus { border-color: #6d28d9; }
+  button {
+    width: 100%; padding: 15px; margin-top: 16px;
+    background: #111; color: #fff; border: none; border-radius: 0;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer; font-family: inherit;
+  }
+  button:hover { background: #6d28d9; }
+  button:disabled { background: #ccc; cursor: wait; }
+  .code {
+    font-size: 44px; font-weight: 800; letter-spacing: 0.12em;
+    text-align: center; padding: 24px 0; margin: 8px 0 4px;
+    border: 1px dashed #111;
+  }
+  .hint { font-size: 13px; color: #666; line-height: 1.7; margin-top: 16px; }
+  .hint ol { padding-left: 20px; }
+  .hint li { margin-bottom: 6px; }
+  .status { text-align: center; font-size: 14px; color: #6d28d9; margin-top: 12px; font-weight: 600; }
+  .error { color: #dc2626; font-size: 14px; margin-top: 12px; text-align: center; }
+  .success { text-align: center; }
+  .success .big { font-size: 52px; margin-bottom: 12px; }
+  .dl {
+    display: block; text-align: center; text-decoration: none;
+    background: #6d28d9; color: #fff; padding: 15px; margin-top: 20px;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .dl:hover { background: #111; }
+  .footer { margin-top: 48px; font-size: 12px; color: #999; letter-spacing: 0.1em; text-transform: uppercase; }
+  .spinner {
+    width: 20px; height: 20px; border: 2px solid #ddd; border-top-color: #6d28d9;
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 16px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="kicker">FAK LABS</div>
+  <h1>Pair WhatsApp</h1>
+  <p class="sub">Link your WhatsApp to FAK BOT in under a minute. No QR scan needed.</p>
+
+  <div class="card">
+    <!-- STEP 1: phone -->
+    <div class="step active" id="step1">
+      <label>WhatsApp number</label>
+      <input id="phone" type="tel" placeholder="923001234567" autocomplete="tel">
+      <button id="getCode" onclick="requestCode()">Get pairing code</button>
+      <div class="error" id="err1"></div>
+    </div>
+
+    <!-- STEP 2: code -->
+    <div class="step" id="step2">
+      <label>Enter this code on your phone</label>
+      <div class="code" id="pairCode">····-····</div>
+      <div class="hint">
+        <ol>
+          <li>Open <b>WhatsApp</b> on your phone</li>
+          <li>Go to <b>Settings → Linked devices</b></li>
+          <li>Tap <b>Link a device</b>, then <b>Link with phone number</b></li>
+          <li>Enter the code above</li>
+        </ol>
+      </div>
+      <div class="spinner" id="waiting"></div>
+      <div class="status" id="waitText">Waiting for you to pair…</div>
+      <div class="error" id="err2"></div>
+    </div>
+
+    <!-- STEP 3: download -->
+    <div class="step" id="step3">
+      <div class="success">
+        <div class="big">✓</div>
+        <h1 style="font-size:22px">Paired!</h1>
+        <p class="sub" style="margin-bottom:0">Download your session file and import it in the FAK BOT app.</p>
+      </div>
+      <a class="dl" id="dlLink" href="#">Download session file</a>
+      <div class="hint" style="margin-top:20px">In the FAK BOT app: <b>Settings → Import session</b>, then select the downloaded file.</div>
+    </div>
+  </div>
+
+  <div class="footer">FAK BOT · Pairing Service</div>
+
+<script>
+let sessionId = null, pollTimer = null;
+
+function show(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function requestCode() {
+  const phone = document.getElementById('phone').value.trim();
+  const err = document.getElementById('err1');
+  const btn = document.getElementById('getCode');
+  err.textContent = '';
+  if (!phone || phone.replace(/\D/g, '').length < 8) {
+    err.textContent = 'Enter a valid number with country code.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Connecting…';
+  try {
+    const r = await fetch('/api/pair', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    sessionId = d.session_id;
+    document.getElementById('pairCode').textContent = d.code;
+    document.getElementById('dlLink').href = '/api/download/' + sessionId;
+    show('step2');
+    pollStatus();
+  } catch (e) {
+    err.textContent = 'Could not start pairing. Try again.';
+    btn.disabled = false; btn.textContent = 'Get pairing code';
+  }
+}
+
+async function pollStatus() {
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/api/status/' + sessionId);
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      if (d.status === 'connected') {
+        clearInterval(pollTimer);
+        show('step3');
+      }
+    } catch (e) {
+      clearInterval(pollTimer);
+      document.getElementById('err2').textContent = 'Session expired. Reload and try again.';
+      document.getElementById('waiting').style.display = 'none';
+      document.getElementById('waitText').textContent = '';
+    }
+  }, 3000);
+}
+</script>
+</body>
+</html>
