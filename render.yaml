@@ -6,4 +6,4 @@ services:
     healthCheckPath: /health
     envVars:
       - key: PORT
-        value: 8080
+        value: 80
